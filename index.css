@@ -1,0 +1,41 @@
+html, body{
+    font-family: 'Roboto Mono', monospace;
+}
+
+#templates{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: relative;
+    margin-top: 50px;
+}
+
+#printer{
+    position: absolute;
+    background-color: rgb(58, 58, 58);
+    top: 0;
+    left: 0;
+    width: 10px;
+    height: 20px;
+    z-index: 5;
+}
+
+#vale{
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+
+    background: white;
+}
+
+.template{
+    cursor: pointer;
+    transition: 0.15s ease;
+}
+
+.template:hover{
+    margin-left: 10px;
+    color: red;
+}
