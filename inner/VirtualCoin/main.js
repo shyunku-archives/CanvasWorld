@@ -1,4 +1,7 @@
 const platform = new Platform();
+const clientNum = 30;
+
+const boss = new Client(platform, false);
 
 $(() => {
     const canvas = new SuperCanvas('chart_canvas', 60);
@@ -10,11 +13,11 @@ $(() => {
     let resizerDragging = false;
     let offset = chartDiv.height();
 
-    const coin1 = new CoinMarket('부트코인', 650);
-    const coin2 = new CoinMarket('라일트리코프넷', 15000);
-    const coin3 = new CoinMarket('크리스피토큰', 10);
-    const coin4 = new CoinMarket('레미온', 0.014);
-    const coin5 = new CoinMarket('메스해시넷', 135);
+    const coin1 = new CoinMarket('부트코인', 650, boss);
+    const coin2 = new CoinMarket('라일트리코프넷', 15000, boss);
+    const coin3 = new CoinMarket('크리스피토큰', 10, boss);
+    const coin4 = new CoinMarket('레미온', 0.014, boss);
+    const coin5 = new CoinMarket('메스해시넷', 135, boss);
 
     platform.applyDiv(itemsDiv);
 
@@ -46,14 +49,52 @@ $(() => {
     });
 
     for(let i=0; i<15; i++){
-        $('.market-item-wrapper.sell').append(`
-
+        $('.market-item-wrapper.sell').prepend(`
+            <div class="sell-market-item market-item" ind="${i}">
+                <div class="amount-graph">
+                    <div class="graph-wrapper">
+                        <div class="graph"></div>
+                        <div class="amount">-</div>
+                    </div>
+                </div>
+                <div class="price-rate">
+                    <div class="price">-</div>
+                    <div class="rate">-</div>
+                </div>
+            </div>
         `);
+    }
+
+    for(let i=0; i<15; i++){
+        $('.market-item-wrapper.buy').append(`
+            <div class="buy-market-item market-item" ind="${i}">
+                <div class="amount-graph">
+                    <div class="graph-wrapper">
+                        <div class="graph"></div>
+                        <div class="amount">-</div>
+                    </div>
+                </div>
+                <div class="price-rate">
+                    <div class="price">-</div>
+                    <div class="rate">-</div>
+                </div>
+            </div>
+        `);
+    }
+
+    const marketOrderPanelDiv = $('#market_order_panel');
+    marketOrderPanelDiv.scrollTop(marketOrderPanelDiv.prop('scrollHeight')/4);
+
+
+    platform.selectFirst();
+
+    const clients = [];
+    for(let i=0;i<clientNum; i++){
+        let newClient = new Client(platform);
     }
 
 
     // render
-
     const rightPadding = 60;
     const bottomPadding = 30;
 

@@ -14,6 +14,7 @@ class Thread{
             clearInterval(this.intervalId);
         }
 
+        this.start();
         this.intervalId = setInterval(() => {
             this.start();
         }, period);
@@ -24,6 +25,7 @@ class Thread{
             clearInterval(this.intervalId);
         }
 
+        runnable();
         this.intervalId = setInterval(() => {
             runnable();
         }, period);

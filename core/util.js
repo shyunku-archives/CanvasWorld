@@ -98,11 +98,11 @@ function randomInt(max){
     return parseInt(Math.random() * max);
 }
 
-function randSeedHexStr(str, len) {
+function randSeedHexStr(str, len = 5) {
     const chars = "ABCDEF0123456789";
     let res = "";
     for (let i = 0; i < len; i++) {
-        res += chars.charAt(Math.floor(randSeedFloat(str + i) * chars.length));
+        res += chars.charAt(Math.floor(randSeedFloat(str + i + "#salt") * chars.length));
     }
     return res;
 }
@@ -139,4 +139,9 @@ function mulberry32(a) {
         t ^= t + Math.imul(t ^ t >>> 7, t | 61);
         return ((t ^ t >>> 14) >>> 0) / 4294967296;
     }
+}
+
+function pickRandomFromArray(arr){
+    let randomIndex = Math.floor(Math.random() * arr.length);
+    return arr[randomIndex];
 }
