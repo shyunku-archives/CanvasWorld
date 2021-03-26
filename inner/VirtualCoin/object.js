@@ -19,12 +19,17 @@ class Client{
             let pickedCoinId = markets[0];
             let pickedCoin = marketMap[pickedCoinId];
 
+            let minSellPrice = pickedCoin.getMinSellPrice();
+            let maxBuyPrice = pickedCoin.getMaxBuyPrice();
+            let buyPrice = minSellPrice || maxBuyPrice;
+
             if(Math.random() < 0.6){
-                pickedCoin.pushOrder(new Order(this, false, pickedCoin.getMinSellPrice(), Math.random() * 5));
+                pickedCoin.pushOrder(new Order(this, false, buyPrice, Math.random() * 5));
             }else{
                 let coins = this.openWallet(pickedCoin.id);
-                if(coins > 5){
-                    pickedCoin.pushOrder(new Order(this, true, pickedCoin.getMinSellPrice() * 1.05, Math.random() * 2));
+                if(coins > 3){
+                    console.log("asdfsd");
+                    pickedCoin.pushOrder(new Order(this, true, formalizeStagePrice(buyPrice, buyPrice, Math.random() < 0.6), Math.random() * 2));
                 }
             }
 
@@ -33,8 +38,8 @@ class Client{
 
         if(active){
             setTimeout(() => {
-                this.fenceThread.repeat(1000);
-            }, 1000 * Math.random() + 500);
+                this.fenceThread.repeat(5000 + Math.random(3000));
+            }, 8000 * Math.random() + 1000);
         }
     }
 
@@ -72,6 +77,7 @@ class Order{
         this.isSell = isSell;
         this.price = price;
         this.amount = amount;
+        this.traded = false;
     }
 }
 
@@ -83,8 +89,12 @@ class CoinMarket{
         this.name = name;
         this.priceClientMap = {};
 
+        this.maxBuyPrice = null;
+        this.minSellPrice = null;
+
+        this.lastUpdateValue = this.value;
+
         // 매수-매도 1호가
-        this.delayedPriceMap = {};
         this.history = {};
 
         this.orderQueue = [];
@@ -101,13 +111,15 @@ class CoinMarket{
         this.syncDocumentThread.repeat(1000);
         this.orderProcess();
 
-        this.pushOrder(new Order(owner, true, this.value, 1000));
+        this.pushOrder(new Order(owner, true, this.value, 100));
     }
 
     orderProcess = () => {
         if(this.orderQueue.length !== 0){
+            // this.printPriceStat();
             let currentOrder = this.popOrder();
             this.concatOrderPriceMap(currentOrder);
+            // console.log(currentOrder.isSell ? "Sell":"Buy", currentOrder.price.toFixed(0), currentOrder.amount.toFixed(2));
     
             this.finalizeOrder();
         }
@@ -128,17 +140,11 @@ class CoinMarket{
             };
         }
 
-        console.log(order.client.id, order.isSell);
-
-        // console.log("before", this.priceClientMap[price]);
-
         if(isSell){
             this.priceClientMap[price].sell.push(order);
         }else{
             this.priceClientMap[price].buy.push(order);
         }
-
-        // console.log("after", this.priceClientMap[price]);
 
         let info = this.priceClientMap[price];
 
@@ -175,8 +181,6 @@ class CoinMarket{
 
                 sellClient.concatCoin(this.id, -buyAmount);
                 buyClient.concatCoin(this.id, buyAmount);
-
-                console.log(buyClient.id, sellClient.id);
             }else{
                 info.buy[buyIter].amount -= sellAmount;
                 info.sell[sellIter].amount -= buyAmount;
@@ -192,6 +196,14 @@ class CoinMarket{
         if(info.buy.length === 0 && info.sell.length === 0){
             delete this.priceClientMap[price];
         }
+    }
+
+    printPriceStat = () => {
+        let stat = {};
+        for(let price in this.priceClientMap){
+            stat[price] = this.getAmount(price).toFixed(2);
+        }
+        console.log(stat);
     }
 
     popOrder = () => {
@@ -237,16 +249,29 @@ class CoinMarket{
 
                 let price = isSell ? this.getMinSellPrice(index) : this.getMaxBuyPrice(index);
                 let amount = this.getAmount(price);
-                let relativeRate = (this.value - price) / this.value;
+                let relativeRate = (price - this.lastUpdateValue) / this.lastUpdateValue;
 
-                if(price === Number.MAX_VALUE || price === -Number.MAX_VALUE || amount === 0){
+                // console.log(isSell, index, price, amount, relativeRate);
+
+                if(price === null || amount === 0){
                     // no value
+                    marketItemDiv.find('.amount').html("-");
+                    marketItemDiv.find('.price').html("-");
+                    marketItemDiv.find('.rate').html("-");
                 }else{
-                    marketItemDiv.find('.amount').html(amount);
-                    marketItemDiv.find('.price').html(formatPrice(price));
-                    marketItemDiv.find('.rate').html(formatRelativeRate(relativeRate));
+                    if(isSell && amount > 0){
+                        marketItemDiv.find('.amount').html(amount.toFixed(3));
+                    }else if(!isSell && amount < 0){
+                        marketItemDiv.find('.amount').html(-amount.toFixed(3));
+                    }
 
-                    maxAmount = Math.max(amount, maxAmount);
+                    marketItemDiv.find('.price').html(formatPrice(price));
+
+                    if(this.value !== null){
+                        marketItemDiv.find('.rate').html(formatRelativeRate(relativeRate));
+                    }
+
+                    maxAmount = Math.max((isSell ? 1 : -1) * amount, maxAmount);
                 }
             }
 
@@ -255,16 +280,30 @@ class CoinMarket{
                 let curAmount = marketItemDiv.find('.amount').html();
                 let graphDiv = marketItemDiv.find('.graph');
 
+                curAmount = parseFloat(curAmount);
+
                 if(Number.isNaN(curAmount) === false){
                     let rate = curAmount / maxAmount;
                     graphDiv.css({width: `${rate * 100}%`});
+                }else{
+                    graphDiv.css({width: `${0}%`});
                 }
             }
         }
+
+        const itemWrapperDiv = $(`.item-wrapper[coinId="${this.id}"]`);
+        itemWrapperDiv.find('.item-curr-value').html(this.currentPrice());
+        itemWrapperDiv.find('.item-curr-rate').html(this.currentRate());
     }
 
     finalizeOrder(){
-        this.value = this.getMinSellPrice();
+        this.maxBuyPrice = this.getMaxBuyPrice();
+        this.minSellPrice = this.getMinSellPrice();
+
+        this.value = this.minSellPrice || this.maxBuyPrice;
+
+        // console.log(this.maxBuyPrice, this.minSellPrice);
+
         this.applyDiv();
     }
 
@@ -286,54 +325,35 @@ class CoinMarket{
 
     getMaxBuyPrice(offset = 0){
         let priceArray = Object.keys(this.priceClientMap);
-        let result = null;
-        let found = false;
 
-        for(let i=0; i<priceArray.length; i++){
-            let curPrice = priceArray[i];
-            if(this.getAmount(curPrice) > 0){
-                result = i-1-offset;
-                found = true;
-                break;
+        priceArray = priceArray.filter(price => {
+            if(this.minSellPrice){
+                return this.minSellPrice > price && this.getAmount(price) < 0;
             }
-        }
+            return this.getAmount(price) < 0;
+        });
 
-        if(!found){
-            let index = offset;
-            return (index < 0 && index >= priceArray.length) ? -Number.MAX_VALUE : parseFloat(priceArray[index]);
-        }
-
-        return result < 0 ? -Number.MAX_VALUE : parseFloat(result);
+        return offset >= priceArray.length ? null : parseFloat(priceArray[priceArray.length - 1 - offset]);
     }
 
     getMinSellPrice(offset = 0){
         let priceArray = Object.keys(this.priceClientMap);
-        let result = null;
-        let found = false;
 
-        for(let i=priceArray.length-1; i>=0; i--){
-            let curPrice = priceArray[i];
-            if(this.getAmount(curPrice) < 0){
-                result = i+1+offset;
-                found = true;
-                break;
+        priceArray = priceArray.filter(price => {
+            if(this.maxBuyPrice){
+                return this.maxBuyPrice < price && this.getAmount(price) > 0;
             }
-        }
-
-        if(!found){
-            let index = priceArray.length - 1 - offset;
-            return (index < 0 && index >= priceArray.length) ? Number.MAX_VALUE : parseFloat(priceArray[index]);
-        }
-
-        return result >= priceArray.length ? Number.MAX_VALUE : parseFloat(result);
+            return this.getAmount(price) > 0;
+        });
+        return offset >= priceArray.length ? null : parseFloat(priceArray[offset]);
     }
 
     currentPrice(){
-        return formatPrice(this.value);
+        return this.value ? formatPrice(this.value) : "-";
     }
 
     currentRate(){
-        return formatRelativeRate(0);
+        return formatRelativeRate((this.value - this.lastUpdateValue) / this.lastUpdateValue);
     }
 
     registerChangeListener(listener){

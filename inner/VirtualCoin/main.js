@@ -1,5 +1,5 @@
 const platform = new Platform();
-const clientNum = 30;
+const clientNum = 300;
 
 const boss = new Client(platform, false);
 
@@ -14,18 +14,18 @@ $(() => {
     let offset = chartDiv.height();
 
     const coin1 = new CoinMarket('부트코인', 650, boss);
-    const coin2 = new CoinMarket('라일트리코프넷', 15000, boss);
-    const coin3 = new CoinMarket('크리스피토큰', 10, boss);
-    const coin4 = new CoinMarket('레미온', 0.014, boss);
-    const coin5 = new CoinMarket('메스해시넷', 135, boss);
+    // const coin2 = new CoinMarket('라일트리코프넷', 15000, boss);
+    // const coin3 = new CoinMarket('크리스피토큰', 10, boss);
+    // const coin4 = new CoinMarket('레미온', 0.014, boss);
+    // const coin5 = new CoinMarket('메스해시넷', 135, boss);
 
     platform.applyDiv(itemsDiv);
 
     platform.publishCoin(coin1);
-    platform.publishCoin(coin2);
-    platform.publishCoin(coin3);
-    platform.publishCoin(coin4);
-    platform.publishCoin(coin5);
+    // platform.publishCoin(coin2);
+    // platform.publishCoin(coin3);
+    // platform.publishCoin(coin4);
+    // platform.publishCoin(coin5);
 
     resizer.on('mousedown', e => {
         resizerMouseDownPos = {x: e.pageX, y: e.pageY};

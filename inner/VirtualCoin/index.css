@@ -209,4 +209,15 @@ body{
     justify-content: space-around;
     flex: 1;
     padding: 10px;
+    overflow: hidden;
+
+    text-align: center;
+}
+
+.market-item-wrapper .price{
+    flex: 1;
+}
+
+.market-item-wrapper .rate{
+    flex: 1;
 }
