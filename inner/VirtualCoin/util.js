@@ -1,7 +1,7 @@
 function formatPrice(price){
     price = parseFloat(price);
     let formalizedPrice = formalizeStagePrice(price);
-    let parts = formalizedPrice.toString().split(".");
+    let parts = formalizedPrice.toFixed(fixPoint(price)).split(".");
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return parts.join(".");
 }
@@ -24,6 +24,7 @@ function formatRelativeRate(rate){
     100,000,000 ~ : 10,000 KRW 단위
 */
 function formalizeStagePrice(price, avoid = null, defaultAscend = true){
+    if(typeof value !== 'number') {price = Number(price);}
     let stage = 1;
 
     if(price >= 100000000){
@@ -57,12 +58,25 @@ function formalizeByQuotient(value, q, avoid, defaultAscend){
         console.error("not parsable");
     }
 
-    let quotient = parseInt(value / q);
+    let quotient = roundInt(value / q);
     let result = q * quotient;
 
     if(avoid !== null && result === avoid){
         return result += (defaultAscend ? 1 : -1) * q;
     }
 
-    return result;
+    return roundFloat(result);
+}
+
+function fixPoint(price){
+    if(price >= 100) return 0;
+    return 2;
+}
+
+function roundFloat(value, point = 3){
+    return parseFloat(value.toFixed(point));
+}
+
+function roundInt(value, point = 3){
+    return parseInt(value.toFixed(point));
 }

@@ -23,6 +23,10 @@ function currentMilliseconds(){
     return new Date().getTime();
 }
 
+function currentSeconds(){
+    return parseInt(new Date().getTime() / 1000);
+}
+
 function updateFancyStringFromLeft(str, duration, renderPeriod, updateCallback){
     if(typeof str !== 'string') return "%ERROR%";
 

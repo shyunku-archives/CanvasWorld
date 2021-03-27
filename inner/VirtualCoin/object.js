@@ -15,21 +15,28 @@ class Client{
             // 새로 살지 말지 판단
             let marketMap = this.platform.marketMap;
             let markets = Object.keys(marketMap);
-            // let pickedCoinId = pickRandomFromArray(markets);
-            let pickedCoinId = markets[0];
+            let pickedCoinId = pickRandomFromArray(markets);
+            // let pickedCoinId = markets[0];
             let pickedCoin = marketMap[pickedCoinId];
 
             let minSellPrice = pickedCoin.getMinSellPrice();
             let maxBuyPrice = pickedCoin.getMaxBuyPrice();
-            let buyPrice = minSellPrice || maxBuyPrice;
+            let sellPrice = minSellPrice || maxBuyPrice;
+            let buyPrice = maxBuyPrice || minSellPrice;
 
-            if(Math.random() < 0.6){
-                pickedCoin.pushOrder(new Order(this, false, buyPrice, Math.random() * 5));
-            }else{
-                let coins = this.openWallet(pickedCoin.id);
-                if(coins > 3){
-                    console.log("asdfsd");
-                    pickedCoin.pushOrder(new Order(this, true, formalizeStagePrice(buyPrice, buyPrice, Math.random() < 0.6), Math.random() * 2));
+            if(Math.random() < 0.3){
+                let orderPrice = 0;
+
+                if(Math.random() < 0.5){
+                    // 올라감 예측 - 매수
+                    let self = Math.random() < 0.6;
+                    orderPrice = formalizeStagePrice(self ? sellPrice : sellPrice * (1 - Math.random() * 0.05));
+                    pickedCoin.pushOrder(new Order(this, false, orderPrice, this.boldness * Math.random() * 50));
+                }else{
+                    // 내려감 예측 - 매도
+                    let self = Math.random() < 0.3;
+                    orderPrice = formalizeStagePrice(self ? buyPrice : buyPrice * (1 + Math.random() * 0.05));
+                    pickedCoin.pushOrder(new Order(this, true, orderPrice, this.boldness * Math.random() * 50));
                 }
             }
 
@@ -79,6 +86,17 @@ class Order{
         this.amount = amount;
         this.traded = false;
     }
+
+    isValid(){
+        if(this.traded === true) return false;
+        if(this.amount < 0) return false;
+        if(formalizeStagePrice(this.price) !== this.price){
+            console.error("Order price format not valid!");
+            return false;
+        }
+
+        return true;
+    }
 }
 
 
@@ -100,7 +118,10 @@ class CoinMarket{
         this.orderQueue = [];
 
         this.writeHistoryThread = new Thread(() => {
-            this.history[currentMilliseconds()] = this.priceMap;
+            this.history[currentSeconds()] = Object.assign({}, {
+                priceMap: this.priceClientMap,
+                value: this.value
+            });
         });
 
         this.syncDocumentThread = new Thread(() => {
@@ -116,12 +137,14 @@ class CoinMarket{
 
     orderProcess = () => {
         if(this.orderQueue.length !== 0){
-            // this.printPriceStat();
             let currentOrder = this.popOrder();
-            this.concatOrderPriceMap(currentOrder);
-            // console.log(currentOrder.isSell ? "Sell":"Buy", currentOrder.price.toFixed(0), currentOrder.amount.toFixed(2));
-    
-            this.finalizeOrder();
+            if(currentOrder.isValid()){
+                // console.log(`Order ${currentOrder.isSell ? "Sell" : "Buy"} ${currentOrder.price} ${currentOrder.amount.toFixed(2)}`)
+                this.concatOrderPriceMap(currentOrder);
+                this.finalizeOrder();
+            }else{
+                console.error("Invalid Order!");
+            }
         }
 
         setTimeout(() => {
@@ -324,7 +347,7 @@ class CoinMarket{
     }
 
     getMaxBuyPrice(offset = 0){
-        let priceArray = Object.keys(this.priceClientMap);
+        let priceArray = Object.keys(this.priceClientMap).sort();
 
         priceArray = priceArray.filter(price => {
             if(this.minSellPrice){
@@ -337,7 +360,7 @@ class CoinMarket{
     }
 
     getMinSellPrice(offset = 0){
-        let priceArray = Object.keys(this.priceClientMap);
+        let priceArray = Object.keys(this.priceClientMap).sort();
 
         priceArray = priceArray.filter(price => {
             if(this.maxBuyPrice){
@@ -359,11 +382,67 @@ class CoinMarket{
     registerChangeListener(listener){
         this.listener = listener;
     }
+
+    getDisplayableInfo(unitSeconds, maxInfoNum = 200){
+        let history = this.history;
+
+        // let currentTimeSecond = currentSeconds();
+        // let currentTimeFloor = formalizeByQuotient(currentTimeSecond, unitSeconds);
+
+        let historyTimelineKey = Object.keys(history).sort((a, b) => (b - a));
+        let info = [];
+        let count = 0;
+        let buffer = null;
+
+        for(let timeKey of historyTimelineKey){
+            let data = history[timeKey];
+            let priceMap = data.priceMap;
+            let curValue = data.value;
+            let timestamp = parseInt(timeKey);
+
+            // sequence: last -> fist
+
+            if(buffer === null){
+                // last segment
+                buffer = {
+                    start: null,
+                    end: curValue,
+                    max: curValue,
+                    min: curValue,
+                    time: null
+                }
+            }else if(formalizeByQuotient(timestamp, unitSeconds) === timestamp){
+                // first segment
+                buffer.start = curValue;
+                buffer.time = timestamp;
+                buffer.max = Math.max(buffer.max, curValue);
+                buffer.min = Math.min(buffer.min, curValue);
+                
+                info.push(buffer);
+
+                count++;
+                buffer = null;
+
+                if(maxInfoNum < count) break;
+            }else{
+                // middle segment
+                buffer.max = Math.max(buffer.max, curValue);
+                buffer.min = Math.min(buffer.min, curValue);
+            }
+        }
+
+        if(buffer !== null){
+            // info.push(buffer);
+        }
+
+        return info;
+    }
 }
 
 class Platform{
     constructor(){
         this.marketMap = {};
+        this.selectedCoin = null;
     }
 
     applyDiv(div){
@@ -403,6 +482,8 @@ class Platform{
 
         let coin = this.marketMap[coinId];
         coin.applyDiv();
+
+        this.selectedCoin = coin;
     }
 
     selectFirst(){
