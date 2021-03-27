@@ -1,19 +1,7 @@
-const platform = new Platform();
-const clientNum = 450;
-
-const boss = new Client(platform, false);
-
 $(() => {
     const canvas = new SuperCanvas('chart_canvas', 60);
 
-    const itemsDiv = $('#items');
-    const resizer = $('#resizer');
-    const chartDiv = $('#chart_canvas_wrapper');
-    let resizerMouseDownPos = null;
-    let resizerDragging = false;
-    let offset = chartDiv.height();
-
-    platform.applyDiv(itemsDiv);
+    platform.applyDiv($('#items'));
 
     publishCoin('메디렛저', 1750, boss);
     publishCoin('제로블록캐시', 1990000, boss);
@@ -25,72 +13,12 @@ $(() => {
     publishCoin('메스해시넷', 135, boss);
     publishCoin('비트코인클래식크레디트', 90, boss);
 
-    resizer.on('mousedown', e => {
-        resizerMouseDownPos = {x: e.pageX, y: e.pageY};
-        resizerDragging = true;
-        offset = chartDiv.height();
-    });
-
-    $(window).on('mousemove', e => {
-        if(resizerDragging === false)return;
-        let curPos = {x: e.pageX, y: e.pageY};
-        let diff = {x: curPos.x - resizerMouseDownPos.x, y: curPos.y - resizerMouseDownPos.y};
-        let newHeight = diff.y + offset;
-
-        if(newHeight < 50 || newHeight > 700) return;
-
-        chartDiv.css({height: newHeight});
-    });
-
-    $(window).on('mouseup', e => {
-        resizerDragging = false;
-    });
-
-    for(let i=0; i<15; i++){
-        $('.market-item-wrapper.sell').prepend(`
-            <div class="sell-market-item market-item" ind="${i}">
-                <div class="amount-graph">
-                    <div class="graph-wrapper">
-                        <div class="graph"></div>
-                        <div class="amount">-</div>
-                    </div>
-                </div>
-                <div class="price-rate">
-                    <div class="price">-</div>
-                    <div class="rate">-</div>
-                </div>
-            </div>
-        `);
-    }
-
-    for(let i=0; i<15; i++){
-        $('.market-item-wrapper.buy').append(`
-            <div class="buy-market-item market-item" ind="${i}">
-                <div class="amount-graph">
-                    <div class="graph-wrapper">
-                        <div class="graph"></div>
-                        <div class="amount">-</div>
-                    </div>
-                </div>
-                <div class="price-rate">
-                    <div class="price">-</div>
-                    <div class="rate">-</div>
-                </div>
-            </div>
-        `);
-    }
-
-    const marketOrderPanelDiv = $('#market_order_panel');
-    marketOrderPanelDiv.scrollTop(marketOrderPanelDiv.prop('scrollHeight')/4);
-
-
     platform.selectFirst();
 
     const clients = [];
     for(let i=0;i<clientNum; i++){
         let newClient = new Client(platform);
     }
-
 
     // render
     const rightPadding = 60;
@@ -103,64 +31,117 @@ $(() => {
         let LT = {x: 0, y: 0};
         let RB = {x: LT.x + rectWidth, y: LT.y + rectHeight};
 
-        c.strokeStyle = 'black';
+        c.strokeStyle = '#999';
         c.lineWidth = 1;
+        c.translate(0.5, 0.5);
         c.beginPath();
         c.moveTo(RB.x, LT.y);
         c.lineTo(RB.x, RB.y);
         c.lineTo(LT.x, RB.y);
         c.stroke();
+        c.translate(-0.5, -0.5);
 
         let selectedCoin = platform.selectedCoin;
         if(selectedCoin !== null){
-            c.fillText(selectedCoin.value, 15, 15);
-
-            let info = selectedCoin.getDisplayableInfo(30, 200);
+            const lineWidth = 4 * graphZoomLevel;
+            const lineMarginRate = 0.3;
+            let info = selectedCoin.getDisplayableInfo(graphCollectPeriod, parseInt(rectWidth / lineWidth));
             let min = Number.MAX_VALUE; // bottom
             let max = Number.MIN_VALUE; // top
-            const lineWidth = 4;
 
             info.map(item => {
                 min = Math.min(item.min, min);
                 max = Math.max(item.max, max);
             });
 
+            let lastValue = info[0].end;
+            let lastValPosY = getValueCoordY(LT.y, RB.y, min, max, lastValue);
+
+            // draw grid
+            c.lineWidth = 1;
+            let valueUnitStage = getPriceIntervalUnit(lastValue, min, max, parseInt(rectHeight / 50));
+            for(let i=0;;i++){
+                let targetValue = min + valueUnitStage * i;
+                let horizontalGridBarY = getValueCoordY(LT.y, RB.y, min, max, targetValue);
+
+                if(targetValue > max) break;
+
+                c.strokeStyle = 'rgb(239, 239, 239)';
+                c.translate(0.5, 0.5);
+                c.beginPath();
+                c.moveTo(parseInt(LT.x), horizontalGridBarY);
+                c.lineTo(parseInt(RB.x), horizontalGridBarY);
+                c.stroke();
+                c.translate(-0.5, -0.5);
+
+                c.fillStyle = '#999';
+                c.fillText(formatPrice(targetValue), parseInt(RB.x) + 10, horizontalGridBarY + 5);
+            }
+
+            // draw axis label
+
+
+            // draw graph
             for(let i=0; i<info.length; i++){
                 let infoItem = info[i];
-
                 let isRaised = infoItem.end > infoItem.start;
 
-                let posX = RB.x - lineWidth * (i + 1);
+                let posX = RB.x - lineWidth * (i + 1) * (1 + lineMarginRate);
                 let startPosY = getValueCoordY(LT.y, RB.y, min, max, infoItem.start);
                 let endPosY = getValueCoordY(LT.y, RB.y, min, max, infoItem.end);
 
                 let minPosY = getValueCoordY(LT.y, RB.y, min, max, infoItem.min);
                 let maxPosY = getValueCoordY(LT.y, RB.y, min, max, infoItem.max);
 
-                c.strokeStyle = 'gray';
+                c.strokeStyle = 'black';
+                c.translate(0.5, 0.5);
                 c.beginPath();
-                c.moveTo(posX + lineWidth / 2, minPosY);
-                c.lineTo(posX + lineWidth / 2, maxPosY);
+                c.moveTo(parseInt(posX + lineWidth / 2), minPosY);
+                c.lineTo(parseInt(posX + lineWidth / 2), maxPosY);
                 c.stroke();
+                c.translate(-0.5, -0.5);
 
                 if(infoItem.start === infoItem.end){
+                    c.translate(0.5, 0.5);
                     c.beginPath();
-                    c.moveTo(posX, startPosY);
-                    c.lineTo(posX + lineWidth, startPosY);
+                    c.moveTo(parseInt(posX), parseInt(startPosY));
+                    c.lineTo(parseInt(posX + lineWidth), parseInt(startPosY));
                     c.stroke();
+                    c.translate(-0.5, -0.5);
                 }else{
-                    c.fillStyle = isRaised ? 'red' : 'blue';
+                    c.fillStyle = isRaised ? 'rgb(210, 80, 70)' : 'rgb(18, 100, 200)';
                     c.fillRect(
-                        posX,
+                        parseInt(posX),
                         startPosY,
-                        lineWidth,
+                        parseInt(lineWidth),
                         endPosY - startPosY
                     );
                 }
+
+                // c.fillText(infoItem.min, posX, RB.y + 5);
+                // c.fillText(infoItem.max, posX, LT.y + 10);
+                // c.fillStyle = 'green';
+                // c.fillText(infoItem.start, posX, LT.y + 30);
+                // c.fillStyle = 'purple';
+                // c.fillText(infoItem.end, posX, LT.y + 40);
             }
 
-            c.fillText(max, RB.x + 10, 15);
-            c.fillText(min, RB.x + 10, RB.y);
+            let isRaised = lastValue > info[0].start;
+            let priceText = formatPrice(lastValue);
+            let textWidth = c.measureText(priceText).width;
+            c.strokeStyle = c.fillStyle = isRaised ? 'rgb(210, 80, 70)' : 'rgb(18, 100, 200)';
+            
+            c.fillRect(RB.x + 10, lastValPosY + 5, textWidth + 10, -18);
+            c.fillStyle = 'white';
+            c.fillText(priceText, RB.x + 15, lastValPosY);
+
+            c.translate(0.5, 0.5);
+            c.lineWidth = 1.5;
+            c.beginPath();
+            c.moveTo(parseInt(RB.x), parseInt(lastValPosY));
+            c.lineTo(parseInt(RB.x + 15), parseInt(lastValPosY));
+            c.stroke();
+            c.translate(-0.5, -0.5);
         }
     });
 });
@@ -171,9 +152,14 @@ function publishCoin(name, value, icoClient){
 }
 
 function getValueCoordY(lty, rby, totalMinValue, totalMaxValue, targetValue){
+    let padding = 30;
     let valueDiffMax = totalMaxValue - totalMinValue;
-    let posDiffMax = rby - lty;
+    let posDiffMax = rby - lty - 2 * padding;
 
-    let curY = rby - (targetValue - totalMinValue) * posDiffMax / valueDiffMax;
+    if(valueDiffMax === 0){
+        return rby - padding;
+    }
+
+    let curY = rby - (targetValue - totalMinValue) * posDiffMax / valueDiffMax - padding;
     return curY;
 }

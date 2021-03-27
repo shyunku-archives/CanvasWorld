@@ -5,7 +5,6 @@ class SuperCanvas{
         this.canvasWrapperRef = this.canvasRef.parent();
         this.ref = this.canvasObject.getContext('2d');
 
-        this.ref.imageSmoothingEnabled = true;
         this.destRenderPeriod = parseInt(1000 / FPS);
 
         this.resize();

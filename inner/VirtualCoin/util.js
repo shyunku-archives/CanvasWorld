@@ -25,6 +25,12 @@ function formatRelativeRate(rate){
 */
 function formalizeStagePrice(price, avoid = null, defaultAscend = true){
     if(typeof value !== 'number') {price = Number(price);}
+    let stage = getPriceUnit(price);
+
+    return formalizeByQuotient(price, stage, avoid, defaultAscend);
+}
+
+function getPriceUnit(price){
     let stage = 1;
 
     if(price >= 100000000){
@@ -46,11 +52,20 @@ function formalizeStagePrice(price, avoid = null, defaultAscend = true){
     }else if(price >= 0){
         stage = 0.01;
     }else{
-        console.error("fatal!", price);
         stage = 0;
     }
 
-    return formalizeByQuotient(price, stage, avoid, defaultAscend);
+    return stage;
+}
+
+function getPriceIntervalUnit(price, min, max, recommended){
+    let stage = getPriceUnit(price);
+    let approximateStageCount = parseInt((max - min) / stage);
+    if(recommended >= approximateStageCount) return stage;
+
+    let adjustmentFactor = Math.round(approximateStageCount / recommended);
+
+    return stage * adjustmentFactor;
 }
 
 function formalizeByQuotient(value, q, avoid, defaultAscend){

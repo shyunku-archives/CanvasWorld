@@ -7,7 +7,9 @@
         <script src="../../core/util.js"></script>
         <script src="../../core/canvas.js"></script>
         <script src="./object.js"></script>
+        <script src="./variables.js"></script>
         <script src="./util.js"></script>
+        <script src="./layout.js"></script>
         <script src="./main.js"></script>
 
         <script src="../../core/modules/GIFEncoder.js"></script>
@@ -21,8 +23,26 @@
         <div id="contents">
             <div id="items"></div>
             <div id="main_content">
-                <div id="chart_canvas_wrapper" class="canvas-wrapper">
-                    <canvas id="chart_canvas"></canvas>
+                <div class="upper-wrapper">
+                    <div id="chart_canvas_wrapper" class="canvas-wrapper">
+                        <canvas id="chart_canvas"></canvas>
+                    </div>
+                    <div id="graph_options_wrapper">
+                        <select id="graph_period_selector">
+                            <option value="1">1초</option>
+                            <option value="3">3초</option>
+                            <option value="5" selected>5초</option>
+                            <option value="10">10초</option>
+                            <option value="30">30초</option>
+                            <option value="60">1분</option>
+                            <option value="120">2분</option>
+                            <option value="300">5분</option>
+                            <option value="600">10분</option>
+                            <option value="3600">1시간</option>
+                            <option value="7200">2시간</option>
+                            <option value="10800">3시간</option>
+                        </select>
+                    </div>
                 </div>
                 <div id="resizer"></div>
                 <div id="panel">

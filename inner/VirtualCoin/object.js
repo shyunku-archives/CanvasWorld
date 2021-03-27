@@ -89,6 +89,7 @@ class Order{
 
     isValid(){
         if(this.traded === true) return false;
+        if(this.price <= 0) return false;
         if(this.amount < 0) return false;
         if(formalizeStagePrice(this.price) !== this.price){
             console.error("Order price format not valid!");
@@ -143,7 +144,7 @@ class CoinMarket{
                 this.concatOrderPriceMap(currentOrder);
                 this.finalizeOrder();
             }else{
-                console.error("Invalid Order!");
+                // console.error("Invalid Order!");
             }
         }
 
@@ -386,9 +387,6 @@ class CoinMarket{
     getDisplayableInfo(unitSeconds, maxInfoNum = 200){
         let history = this.history;
 
-        // let currentTimeSecond = currentSeconds();
-        // let currentTimeFloor = formalizeByQuotient(currentTimeSecond, unitSeconds);
-
         let historyTimelineKey = Object.keys(history).sort((a, b) => (b - a));
         let info = [];
         let count = 0;
@@ -396,7 +394,6 @@ class CoinMarket{
 
         for(let timeKey of historyTimelineKey){
             let data = history[timeKey];
-            let priceMap = data.priceMap;
             let curValue = data.value;
             let timestamp = parseInt(timeKey);
 
@@ -404,12 +401,14 @@ class CoinMarket{
 
             if(buffer === null){
                 // last segment
+                let target = info.length > 0 ? info[info.length - 1].start : curValue;
+
                 buffer = {
-                    start: null,
-                    end: curValue,
-                    max: curValue,
-                    min: curValue,
-                    time: null
+                    start: target,
+                    end: target,
+                    max: target,
+                    min: target,
+                    time: formalizeByQuotient(timestamp, unitSeconds)
                 }
             }else if(formalizeByQuotient(timestamp, unitSeconds) === timestamp){
                 // first segment
@@ -426,13 +425,14 @@ class CoinMarket{
                 if(maxInfoNum < count) break;
             }else{
                 // middle segment
+                buffer.start = curValue;
                 buffer.max = Math.max(buffer.max, curValue);
                 buffer.min = Math.min(buffer.min, curValue);
             }
         }
 
         if(buffer !== null){
-            // info.push(buffer);
+            info.push(buffer);
         }
 
         return info;
