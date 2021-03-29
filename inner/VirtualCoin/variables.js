@@ -1,7 +1,7 @@
 const platform = new Platform();
-const clientNum = 500;
+const clientNum = 100;
 
-const boss = new Client(platform, false);
+const boss = new Client(platform, true);
 
 let graphZoomLevel = 1;
 let graphCollectPeriod = 5;

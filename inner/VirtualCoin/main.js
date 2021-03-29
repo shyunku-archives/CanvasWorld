@@ -3,15 +3,16 @@ $(() => {
 
     platform.applyDiv($('#items'));
 
-    publishCoin('메디렛저', 1750, boss);
-    publishCoin('제로블록캐시', 1990000, boss);
-    publishCoin('플론', 3000, boss);
-    publishCoin('부트코인', 650, boss);
-    publishCoin('라일트리코프넷', 15000, boss);
-    publishCoin('크리스피토큰', 10, boss);
-    publishCoin('레미온', 0.14, boss);
-    publishCoin('메스해시넷', 135, boss);
-    publishCoin('비트코인클래식크레디트', 90, boss);
+    // publishCoin('메디렛저', 1750, boss);
+    // publishCoin('제로블록캐시', 1990000, boss);
+    // publishCoin('플론', 3000, boss);
+    // publishCoin('부트코인', 650, boss);
+    // publishCoin('라일트리코프넷', 15000, boss);
+    // publishCoin('크리스피토큰', 10, boss);
+    // publishCoin('레미온', 0.14, boss);
+    // publishCoin('메스해시넷', 135, boss);
+    // publishCoin('비트코인클래식크레디트', 90, boss);
+    publishCoin('TEST', 9.99, boss);
 
     platform.selectFirst();
 

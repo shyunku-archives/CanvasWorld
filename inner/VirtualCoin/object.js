@@ -1,57 +1,147 @@
 class Client{
-    constructor(platform, active = true){
+    constructor(platform, isBoss = false){
         this.id = "Client#" + randSeedHexStr(Math.random(), 15);
         this.platform = platform;
         this.wallet = {};
 
-        // 과감함: 0~1
-        this.boldness = Math.random();
-        // 침착함: 0~1
-        this.calmness = Math.random();
-        // 시드: 10000 ~ 300000000
-        this.seed = Math.random(299990000) + 10000;
+        // 존버력: 0.1~0.9 (관망 주기)
+        this.stayness = Math.random() * 0.8 + 0.1;
+        // 과감함: 0.1~0.9 (쓰는 돈의 비율)
+        this.boldness = Math.random() * 0.8 + 0.1;
+        // 경솔함: 0.1~0.9
+        this.frivolity = Math.random() * 0.8 + 0.1;
+        // 침착함: 0.1~0.9 (위기 대처 능력)
+        this.calmness = Math.random() * 0.8 + 0.1;
+        // 시드: 10000 ~ 3000000 (초기 자본)
+        this.seed = isBoss ? Number.MAX_SAFE_INTEGER : normalDistribution(10000, 3000000, 8);
+        // 지능: 0.1~0.9 (지능)
+        this.intelligence = normalDistribution(0.1, 0.9);
+        // 관망 정도: 5 ~ 60
+        this.lookOutRange = parseInt(normalDistribution(5, 60, 3));
+
+
+        // 결정 관련
+        this.decisionPeriod = Math.random() * 3000 + 100;
+
+        // Flags
+        this.evaluationMap = {};
+        this.currentSeed = this.seed;
 
         this.fenceThread = new Thread(() => {
-            // 새로 살지 말지 판단
             let marketMap = this.platform.marketMap;
             let markets = Object.keys(marketMap);
-            let pickedCoinId = pickRandomFromArray(markets);
-            // let pickedCoinId = markets[0];
-            let pickedCoin = marketMap[pickedCoinId];
 
-            let minSellPrice = pickedCoin.getMinSellPrice();
-            let maxBuyPrice = pickedCoin.getMaxBuyPrice();
-            let sellPrice = minSellPrice || maxBuyPrice;
-            let buyPrice = maxBuyPrice || minSellPrice;
+            if(Math.random() > this.stayness){
+                let maxEvaluationScoreCoin = [];
+                let maxEvaluationScore = 0;
+                for(let coinId of markets){
+                    let coin = marketMap[coinId];
+                    let trendiness = coin.getTrendDifference(this.lookOutRange);
 
-            if(Math.random() < 0.3){
-                let orderPrice = 0;
+                    // 지능이 높을 수록 오른 코인에 대해 시세가 낮아질 것이라고 예측
+                    let score = 0.5 - (this.intelligence - 0.5) * Math.tanh(trendiness);
+                    this.evaluateCoin(coinId, score);
 
-                if(Math.random() < 0.5){
-                    // 올라감 예측 - 매수
-                    let self = Math.random() < 0.6;
-                    orderPrice = formalizeStagePrice(self ? sellPrice : sellPrice * (1 - Math.random() * 0.05));
-                    pickedCoin.pushOrder(new Order(this, false, orderPrice, this.boldness * Math.random() * 50));
-                }else{
-                    // 내려감 예측 - 매도
-                    let self = Math.random() < 0.3;
-                    orderPrice = formalizeStagePrice(self ? buyPrice : buyPrice * (1 + Math.random() * 0.05));
-                    pickedCoin.pushOrder(new Order(this, true, orderPrice, this.boldness * Math.random() * 50));
+                    let calculatedScore = this.getEvaluationScore(coinId);
+
+                    if(calculatedScore > maxEvaluationScore){
+                        maxEvaluationScore = calculatedScore;
+                        maxEvaluationScoreCoin = [coinId];
+                    }else if(calculatedScore === maxEvaluationScore){
+                        maxEvaluationScoreCoin.push(coinId);
+                    }
                 }
-            }
 
-            // console.log(this.wallet);
+                let remainSeed = this.currentSeed;
+                const calmnessFactor = 20;
+
+                // intelligence high: 낮은 가격에 매수, 높은 가격에 매도
+                // intelligence low: 높은 가격에 매수, 낮은 가격에 매도
+                if(maxEvaluationScore > (0.5 + this.calmness / calmnessFactor)){
+                    // 매수
+                    let pickedCoinId = maxEvaluationScoreCoin[parseInt(Math.random() * maxEvaluationScoreCoin.length)];
+                    let pickedCoin = marketMap[pickedCoinId];
+    
+                    let minSellPrice = pickedCoin.minSellPrice;
+                    let maxBuyPrice = pickedCoin.maxBuyPrice;
+                    let sellPrice = minSellPrice || maxBuyPrice;
+                    let buyPrice = maxBuyPrice || minSellPrice;
+
+                    // 매수 가격 책정
+                    let buyBias = this.frivolity / 0.5; // 경솔함이 높을수록 분포가 가격이 높은 쪽에 치우침 -> 최우선 매수가에 가까움
+                    let buyPriceDecision = normalDistribution(buyPrice * 0.9, buyPrice, buyBias);
+                    let finalBuyPrice = formalizeStagePrice(buyPriceDecision);
+                    let finalBuyAmount = remainSeed * normalDistribution(0.05, 0.9, 5) / finalBuyPrice;
+                    console.log(buyPrice);
+
+                    this.order(pickedCoin, false, finalBuyPrice, finalBuyAmount);
+                }else if(maxEvaluationScore < (0.5 - this.calmness / calmnessFactor)){
+                    // 매도
+                    let descendingDecCoins = markets.filter(coinId => this.wallet.hasOwnProperty(coinId)).sort((ca, cb) => {
+                        return this.getEvaluationScore(cb) - this.getEvaluationScore(ca);
+                    });
+
+                    if(descendingDecCoins.length === 0){
+                        // 보유 코인 없음
+                    }else{
+                        let selectedToSell = descendingDecCoins[0];
+                        let pickedCoin = marketMap[selectedToSell];
+
+                        let minSellPrice = pickedCoin.minSellPrice;
+                        let maxBuyPrice = pickedCoin.maxBuyPrice;
+                        let sellPrice = minSellPrice || maxBuyPrice;
+                        let buyPrice = maxBuyPrice || minSellPrice;
+
+                        // 매도 가격 책정
+                        let sellBias = 0.5 / this.frivolity; // 경솔함이 높을수록 분포가 낮은 쪽에 치우침 -> 최우선 매수가에 가까움
+                        let sellPriceDecision = normalDistribution(sellPrice * 0.95, sellPrice * 1.1, sellBias);
+                        let finalSellPrice = formalizeStagePrice(sellPriceDecision);
+                        let finalSellAmount = remainSeed * normalDistribution(0.05, 0.9, 5) / finalSellPrice;
+
+                        this.order(pickedCoin, true, finalSellPrice, finalSellAmount);
+                    }
+                }
+            }else{
+                // 관망
+            }
         });
 
-        if(active){
-            setTimeout(() => {
-                this.fenceThread.repeat(5000 + Math.random(3000));
-            }, 8000 * Math.random() + 1000);
+        if(!isBoss){
+            this.fenceThread.repeat(this.decisionPeriod);
         }
+    }
+
+    order = (coin, isSell, price, amount) => {
+        let order = new Order(this, isSell, price, amount);
+        coin.pushOrder(order);
+    }
+
+    tradeListener = () => {
+
     }
 
     considerBuy(){
 
+    }
+
+    evaluateCoin(coinId, newScore){
+        let originalEvaluateScore = 0;
+        if(this.evaluationMap.hasOwnProperty(coinId)){
+            originalEvaluateScore = this.evaluationMap[coinId];
+        }else{
+            originalEvaluateScore = Math.random();
+        }
+
+        this.evaluationMap[coinId] = (newScore + originalEvaluateScore) / 2;
+    }
+
+    getEvaluationScore(coinId){
+        if(!this.evaluationMap.hasOwnProperty(coinId)){
+            this.evaluationMap[coinId] = 0.5;
+            
+        }
+
+        return this.evaluationMap[coinId];
     }
 
     openWallet(coinId){
@@ -76,6 +166,16 @@ class Client{
             delete this.wallet[coinId];
         }
     }
+
+    deposit(value){
+        // 입금
+        this.currentSeed += value;
+    }
+
+    withdraw(value){
+        // 출금
+        this.currentSeed -= value;
+    }
 }
 
 class Order{
@@ -84,11 +184,9 @@ class Order{
         this.isSell = isSell;
         this.price = price;
         this.amount = amount;
-        this.traded = false;
     }
 
-    isValid(){
-        if(this.traded === true) return false;
+    isValid = () => {
         if(this.price <= 0) return false;
         if(this.amount < 0) return false;
         if(formalizeStagePrice(this.price) !== this.price){
@@ -96,7 +194,15 @@ class Order{
             return false;
         }
 
+        if(this.client.currentSeed < this.getTotalPrice()){
+            return false;
+        }
+
         return true;
+    }
+
+    getTotalPrice(){
+        return this.price * this.amount;
     }
 }
 
@@ -112,6 +218,7 @@ class CoinMarket{
         this.minSellPrice = null;
 
         this.lastUpdateValue = this.value;
+        this.ready = false;
 
         // 매수-매도 1호가
         this.history = {};
@@ -133,7 +240,7 @@ class CoinMarket{
         this.syncDocumentThread.repeat(1000);
         this.orderProcess();
 
-        this.pushOrder(new Order(owner, true, this.value, 100));
+        this.pushOrder(new Order(owner, true, this.value, 10000));
     }
 
     orderProcess = () => {
@@ -196,7 +303,9 @@ class CoinMarket{
                 sellIter++;
 
                 sellClient.concatCoin(this.id, -sellAmount);
+                sellClient.deposit(sellAmount * price);
                 buyClient.concatCoin(this.id, sellAmount);
+                buyClient.withdraw(sellAmount * price);
             }else if(sellAmount > buyAmount){
                 // buyAmount만큼 처리
                 info.sell[sellIter].amount -= buyAmount;
@@ -204,7 +313,9 @@ class CoinMarket{
                 buyIter++;
 
                 sellClient.concatCoin(this.id, -buyAmount);
+                sellClient.deposit(buyAmount * price);
                 buyClient.concatCoin(this.id, buyAmount);
+                buyClient.withdraw(buyAmount * price);
             }else{
                 info.buy[buyIter].amount -= sellAmount;
                 info.sell[sellIter].amount -= buyAmount;
@@ -213,7 +324,9 @@ class CoinMarket{
                 buyIter++;
 
                 sellClient.concatCoin(this.id, -sellAmount);
+                sellClient.deposit(sellAmount * price);
                 buyClient.concatCoin(this.id, buyAmount);
+                buyClient.withdraw(sellAmount * price);
             }
         }
 
@@ -320,11 +433,12 @@ class CoinMarket{
         itemWrapperDiv.find('.item-curr-rate').html(this.currentRate());
     }
 
-    finalizeOrder(){
+    finalizeOrder = () => {
         this.maxBuyPrice = this.getMaxBuyPrice();
         this.minSellPrice = this.getMinSellPrice();
 
         this.value = this.minSellPrice || this.maxBuyPrice;
+        if(this.value !== null) this.ready = true;
 
         // console.log(this.maxBuyPrice, this.minSellPrice);
 
@@ -348,7 +462,7 @@ class CoinMarket{
     }
 
     getMaxBuyPrice(offset = 0){
-        let priceArray = Object.keys(this.priceClientMap).sort();
+        let priceArray = Object.keys(this.priceClientMap).sort((a, b) => (parseFloat(a) - parseFloat(b)));
 
         priceArray = priceArray.filter(price => {
             if(this.minSellPrice){
@@ -361,7 +475,7 @@ class CoinMarket{
     }
 
     getMinSellPrice(offset = 0){
-        let priceArray = Object.keys(this.priceClientMap).sort();
+        let priceArray = Object.keys(this.priceClientMap).sort((a, b) => (parseFloat(a) - parseFloat(b)));
 
         priceArray = priceArray.filter(price => {
             if(this.maxBuyPrice){
@@ -382,6 +496,16 @@ class CoinMarket{
 
     registerChangeListener(listener){
         this.listener = listener;
+    }
+
+    getTrendDifference = (stage = 30) => {
+        let historyTimelineKey = Object.keys(history).sort((a, b) => (b - a));
+        let recentValue = this.value;
+
+        if(historyTimelineKey.length === 0) return 0;
+        let oldValue = historyTimelineKey[historyTimelineKey.length <= stage ? historyTimelineKey.length - 1 : stage];
+
+        return (recentValue - oldValue) / oldValue;
     }
 
     getDisplayableInfo(unitSeconds, maxInfoNum = 200){

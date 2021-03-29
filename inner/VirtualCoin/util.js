@@ -95,3 +95,35 @@ function roundFloat(value, point = 3){
 function roundInt(value, point = 3){
     return parseInt(value.toFixed(point));
 }
+
+function gaussianRandom() {
+    let v1, v2, s;
+  
+    do {
+      v1 = 2 * Math.random() - 1;   // -1.0 ~ 1.0 까지의 값
+      v2 = 2 * Math.random() - 1;   // -1.0 ~ 1.0 까지의 값
+      s = v1 * v1 + v2 * v2;
+    } while (s >= 1 || s == 0);
+  
+    s = Math.sqrt((-2 * Math.log(s))/s);
+  
+    return v1 * s;
+}
+
+function normalDistribution(min, max, skew = 1) {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random() //Converting [0,1) to (0,1)
+    while(v === 0) v = Math.random()
+    let num = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v )
+    
+    num = num / 10.0 + 0.5 // Translate to 0 -> 1
+    if (num > 1 || num < 0) 
+      num = randn_bm(min, max, skew) // resample between 0 and 1 if out of range
+    
+    else{
+      num = Math.pow(num, skew) // Skew
+      num *= max - min // Stretch to fill range
+      num += min // offset to min
+    }
+    return num
+}
